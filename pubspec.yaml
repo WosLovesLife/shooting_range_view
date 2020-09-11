@@ -1,8 +1,8 @@
 name: shooting_range_view
 description: A extendable widget can use to make some stylish views such as sentence translation widget in Duolingo App
 version: 0.0.1
-author:
-homepage:
+author: WosLovesLife<zhang599926@gmail.com>
+homepage: https://github.com/WosLovesLife/shooting_range_view
 
 environment:
   sdk: ">=2.7.0 <3.0.0"
