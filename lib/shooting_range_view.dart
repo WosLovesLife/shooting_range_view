@@ -3,10 +3,16 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-class Item {
+class Item<T> {
   bool selected;
   int order;
-  Item(this.selected, {this.order});
+  T data;
+
+  Item(
+    this.selected, {
+    this.order,
+    this.data,
+  });
 }
 
 class _Bullet {
@@ -29,6 +35,7 @@ class _Trajectory {
 
 class _TargetModel extends ValueNotifier<List<_Bullet>> {
   _TargetModel(List<_Bullet> value) : super(value);
+
   @override
   void dispose() {
     value.forEach((e) {
@@ -52,6 +59,7 @@ class _TargetModel extends ValueNotifier<List<_Bullet>> {
 
 class _TrajectoryModel extends ValueNotifier<List<_Trajectory>> {
   _TrajectoryModel(List<_Trajectory> value) : super(value);
+
   @override
   void dispose() {
     value.forEach((e) {
@@ -72,7 +80,7 @@ class _TrajectoryModel extends ValueNotifier<List<_Trajectory>> {
 }
 
 const Duration _kAnimDuration = const Duration(milliseconds: 260);
-const Duration _kWaitRebuildDelay = const Duration(milliseconds: 50);
+const Duration _kWaitRebuildDelay = const Duration(milliseconds: 150);
 
 typedef Widget BulletWidgetBuilder(BuildContext context, Item item, Animation<double> animation);
 typedef void BulletClickCallback(Item item);
@@ -84,6 +92,7 @@ class ShootingBoard extends StatefulWidget {
   final BulletWidgetBuilder transferBuilder;
   final BulletClickCallback onBulletClick;
   final BulletClickCallback onTargetClick;
+
   const ShootingBoard({
     Key key,
     @required this.items,
@@ -93,6 +102,7 @@ class ShootingBoard extends StatefulWidget {
     @required this.onBulletClick,
     @required this.onTargetClick,
   }) : super(key: key);
+
   @override
   _ShootingBoardState createState() => _ShootingBoardState();
 }
@@ -110,11 +120,9 @@ class _ShootingBoardState extends State<ShootingBoard> with TickerProviderStateM
     final targets = <_Bullet>[];
     widget.items.forEach((e) {
       if (e.selected) {
-        targets.add(
-            _Bullet(e, GlobalKey(), AnimationController(vsync: this, duration: _kAnimDuration)));
+        targets.add(_Bullet(e, GlobalKey(), AnimationController(vsync: this, duration: _kAnimDuration)));
       }
-      _bullets
-          .add(_Bullet(e, GlobalKey(), AnimationController(vsync: this, duration: _kAnimDuration)));
+      _bullets.add(_Bullet(e, GlobalKey(), AnimationController(vsync: this, duration: _kAnimDuration)));
     });
     _targetModel.value = targets;
   }
@@ -136,7 +144,7 @@ class _ShootingBoardState extends State<ShootingBoard> with TickerProviderStateM
                     alignment: Alignment.topLeft,
                     child: ProviderWidget(
                       model: _targetModel,
-                      builder: (BuildContext context, _TargetModel model, Widget child) {
+                      builder: (context, model, child) {
                         return Wrap(
                           alignment: WrapAlignment.start,
                           children: _buildTargets(),
@@ -178,13 +186,16 @@ class _ShootingBoardState extends State<ShootingBoard> with TickerProviderStateM
         ),
         ProviderWidget(
           model: _trajectoryModel,
-          builder: (BuildContext context, _TrajectoryModel model, Widget child) {
+          builder: (context, model, child) {
             return Positioned.fill(
               child: Stack(
-                children: model.value.where((e) => e.anim.isAnimating).map((e) {
+                children: (model as _TrajectoryModel).value.where((e) => e.anim.isAnimating).map((e) {
                   return AnimatedBuilder(
                     animation: e.anim,
                     builder: (BuildContext context, Widget child) {
+                      if (e.anim.isCompleted || e.anim.isDismissed) {
+                        return SizedBox.shrink();
+                      }
                       final curve = CurvedAnimation(parent: e.anim, curve: Curves.fastOutSlowIn);
                       Rect rect;
                       if (e.anim.status == AnimationStatus.forward) {
@@ -341,9 +352,9 @@ class _Tap extends StatelessWidget {
 
 typedef ProviderWidgetBuilder<T>(BuildContext context, T model, Widget child);
 
-class ProviderWidget<T extends ValueListenable> extends StatefulWidget {
-  final T model;
-  final ProviderWidgetBuilder<T> builder;
+class ProviderWidget<E> extends StatefulWidget {
+  final E model;
+  final ProviderWidgetBuilder<Object> builder;
   final Widget child;
 
   const ProviderWidget({
@@ -354,10 +365,10 @@ class ProviderWidget<T extends ValueListenable> extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _ProviderWidgetState<T> createState() => _ProviderWidgetState<T>();
+  _ProviderWidgetState createState() => _ProviderWidgetState();
 }
 
-class _ProviderWidgetState<T> extends State<ProviderWidget> {
+class _ProviderWidgetState extends State<ProviderWidget> {
   @override
   void initState() {
     super.initState();
