@@ -1,18 +1,13 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class Item<T> {
   bool selected;
-  int order;
+  int? order;
   T data;
 
-  Item(
-    this.selected, {
-    this.order,
-    this.data,
-  });
+  Item(this.selected, {this.order, required this.data});
 }
 
 class _Bullet {
@@ -30,7 +25,7 @@ class _Trajectory {
   final GlobalKey from;
   final GlobalKey to;
 
-  _Trajectory(this.data, this.anim, this.shootingTween, {this.from, this.to});
+  _Trajectory(this.data, this.anim, this.shootingTween, {required this.from, required this.to});
 }
 
 class _TargetModel extends ValueNotifier<List<_Bullet>> {
@@ -94,14 +89,14 @@ class ShootingBoard extends StatefulWidget {
   final BulletClickCallback onTargetClick;
 
   const ShootingBoard({
-    Key key,
-    @required this.items,
-    @required this.targetBuilder,
-    @required this.bulletBuilder,
-    @required this.transferBuilder,
-    @required this.onBulletClick,
-    @required this.onTargetClick,
-  }) : super(key: key);
+    super.key,
+    required this.items,
+    required this.targetBuilder,
+    required this.bulletBuilder,
+    required this.transferBuilder,
+    required this.onBulletClick,
+    required this.onTargetClick,
+  });
 
   @override
   _ShootingBoardState createState() => _ShootingBoardState();
@@ -145,41 +140,32 @@ class _ShootingBoardState extends State<ShootingBoard> with TickerProviderStateM
                     child: ProviderWidget(
                       model: _targetModel,
                       builder: (context, model, child) {
-                        return Wrap(
-                          alignment: WrapAlignment.start,
-                          children: _buildTargets(),
-                        );
+                        return Wrap(alignment: WrapAlignment.start, children: _buildTargets());
+                      }, child: Container(),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: LayoutBuilder(
+                      builder: (BuildContext context, BoxConstraints constraints) {
+                        List<Widget> children = [];
+                        for (int i = 0; i < (constraints.maxHeight / 56).floor(); i++) {
+                          children.add(
+                            Padding(
+                              padding: const EdgeInsets.only(top: 55.0),
+                              child: Divider(height: 2, thickness: 1.5, color: Theme.of(context).disabledColor),
+                            ),
+                          );
+                        }
+                        return Column(mainAxisSize: MainAxisSize.min, children: children);
                       },
                     ),
                   ),
-                  Positioned.fill(child: LayoutBuilder(
-                    builder: (BuildContext context, BoxConstraints constraints) {
-                      List<Widget> children = [];
-                      for (int i = 0; i < (constraints.maxHeight / 56).floor(); i++) {
-                        children.add(Padding(
-                          padding: const EdgeInsets.only(top: 55.0),
-                          child: Divider(
-                            height: 2,
-                            thickness: 1.5,
-                            color: Theme.of(context).disabledColor,
-                          ),
-                        ));
-                      }
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: children,
-                      );
-                    },
-                  )),
                 ],
               ),
               Container(
                 alignment: Alignment.bottomLeft,
                 constraints: BoxConstraints(minHeight: 200),
-                child: Wrap(
-                  alignment: WrapAlignment.start,
-                  children: _buildBullets(),
-                ),
+                child: Wrap(alignment: WrapAlignment.start, children: _buildBullets()),
               ),
             ],
           ),
@@ -189,38 +175,37 @@ class _ShootingBoardState extends State<ShootingBoard> with TickerProviderStateM
           builder: (context, model, child) {
             return Positioned.fill(
               child: Stack(
-                children: (model as _TrajectoryModel).value.where((e) => e.anim.isAnimating).map((e) {
-                  return AnimatedBuilder(
-                    animation: e.anim,
-                    builder: (BuildContext context, Widget child) {
-                      if (e.anim.isCompleted || e.anim.isDismissed) {
-                        return SizedBox.shrink();
-                      }
-                      final curve = CurvedAnimation(parent: e.anim, curve: Curves.fastOutSlowIn);
-                      Rect rect;
-                      if (e.anim.status == AnimationStatus.forward) {
-                        try {
-                          final t = RectTween(begin: _getRect(e.from), end: _getRect(e.to));
-                          rect = curve.drive<Rect>(t).value;
-                        } catch (exe, s) {
-                          FlutterError.reportError(FlutterErrorDetails(
-                            exception: exe,
-                            stack: s,
-                            library: runtimeType.toString(),
-                          ));
-                          rect = curve.drive<Rect>(e.shootingTween).value;
-                        }
-                      } else {
-                        rect = curve.drive<Rect>(e.shootingTween).value;
-                      }
-                      return Positioned.fromRect(rect: rect, child: child);
-                    },
-                    child: widget.transferBuilder(context, e.data, e.anim),
-                  );
-                }).toList(),
+                children:
+                    (model as _TrajectoryModel).value.where((e) => e.anim.isAnimating).map((e) {
+                      return AnimatedBuilder(
+                        animation: e.anim,
+                        builder: (context, child) {
+                          if (e.anim.isCompleted || e.anim.isDismissed) {
+                            return SizedBox.shrink();
+                          }
+                          final curve = CurvedAnimation(parent: e.anim, curve: Curves.fastOutSlowIn);
+                          Rect rect;
+                          if (e.anim.status == AnimationStatus.forward) {
+                            try {
+                              final t = RectTween(begin: _getRect(e.from), end: _getRect(e.to));
+                              rect = curve.drive<Rect>(t as Animatable<Rect>).value;
+                            } catch (exe, s) {
+                              FlutterError.reportError(
+                                FlutterErrorDetails(exception: exe, stack: s, library: runtimeType.toString()),
+                              );
+                              rect = e.shootingTween.animate(curve).value??Rect.zero;
+                            }
+                          } else {
+                            rect = e.shootingTween.animate(curve).value??Rect.zero;
+                          }
+                          return Positioned.fromRect(rect: rect, child: child!);
+                        },
+                        child: widget.transferBuilder(context, e.data, e.anim),
+                      );
+                    }).toList(),
               ),
             );
-          },
+          }, child: Container(),
         ),
       ],
     );
@@ -231,11 +216,8 @@ class _ShootingBoardState extends State<ShootingBoard> with TickerProviderStateM
       Widget child = _Tap(
         child: AnimatedBuilder(
           animation: target.anim,
-          builder: (BuildContext context, Widget child) {
-            return Opacity(
-              opacity: target.anim.value,
-              child: child,
-            );
+          builder: (context, child) {
+            return Opacity(opacity: target.anim.value, child: child);
           },
           child: widget.targetBuilder(context, target.data, target.anim),
         ),
@@ -249,7 +231,7 @@ class _ShootingBoardState extends State<ShootingBoard> with TickerProviderStateM
           traA.reverse(from: traA.upperBound);
           target.anim.reverse(from: target.anim.upperBound);
 
-          AnimationStatusListener statusListener;
+          late AnimationStatusListener statusListener;
           statusListener = (status) {
             if (target.anim.isDismissed) {
               target.anim.removeStatusListener(statusListener);
@@ -266,18 +248,15 @@ class _ShootingBoardState extends State<ShootingBoard> with TickerProviderStateM
       return AnimatedBuilder(
         key: target.key,
         animation: target.anim,
-        builder: (BuildContext context, Widget child) {
+        builder: (context, child) {
           if (target.anim.status == AnimationStatus.reverse) {
             return SizeTransition(
               sizeFactor: target.anim,
               axis: Axis.horizontal,
-              child: Opacity(
-                opacity: 0,
-                child: child,
-              ),
+              child: Opacity(opacity: 0, child: child),
             );
           }
-          return child;
+          return child!;
         },
         child: child,
       );
@@ -305,7 +284,7 @@ class _ShootingBoardState extends State<ShootingBoard> with TickerProviderStateM
           final tra = _Trajectory(bullet.data, traA, traT, from: bullet.key, to: target.key);
           _trajectoryModel.addItem(tra);
           traA.forward();
-          AnimationStatusListener statusListener;
+          late AnimationStatusListener statusListener;
           statusListener = (status) {
             if (traA.isCompleted) {
               traA.removeStatusListener(statusListener);
@@ -321,13 +300,10 @@ class _ShootingBoardState extends State<ShootingBoard> with TickerProviderStateM
   }
 
   Rect _getRect(GlobalKey key) {
-    RenderBox renderBox = key.currentContext.findRenderObject();
-    Offset toLocation = renderBox.localToGlobal(
-      Offset.zero,
-      ancestor: _rootKey.currentContext.findRenderObject(),
-    );
-    final toSize = renderBox.paintBounds;
-    return Rect.fromLTWH(toLocation.dx, toLocation.dy, toSize.width, toSize.height);
+    RenderBox? renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+    Offset? toLocation = renderBox?.localToGlobal(Offset.zero, ancestor: _rootKey.currentContext?.findRenderObject());
+    final toSize = renderBox?.paintBounds;
+    return Rect.fromLTWH(toLocation?.dx??0, toLocation?.dy??0, toSize?.width??0, toSize?.height??0);
   }
 }
 
@@ -335,7 +311,7 @@ class _Tap extends StatelessWidget {
   final Widget child;
   final GestureTapCallback onTap;
 
-  const _Tap({Key key, @required this.onTap, @required this.child}) : super(key: key);
+  const _Tap({super.key, required this.onTap, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -357,12 +333,7 @@ class ProviderWidget<E> extends StatefulWidget {
   final ProviderWidgetBuilder<Object> builder;
   final Widget child;
 
-  const ProviderWidget({
-    Key key,
-    @required this.model,
-    @required this.builder,
-    this.child,
-  }) : super(key: key);
+  const ProviderWidget({super.key, required this.model, required this.builder, required this.child});
 
   @override
   _ProviderWidgetState createState() => _ProviderWidgetState();
@@ -387,10 +358,6 @@ class _ProviderWidgetState extends State<ProviderWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return widget.builder(
-      context,
-      widget.model,
-      widget.child,
-    );
+    return widget.builder(context, widget.model, widget.child);
   }
 }
